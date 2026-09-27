@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>贷款计算器 · 等额本息 | 网页版</title>
+<meta name="description" content="由 Java 控制台程序 App.java 改造的等额本息贷款计算器网页版:输入年利率、贷款年限、贷款金额,自动计算月供、总还款额、总利息与逐月还款计划。">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">¥</span>
+      <div class="brand-text">
+        <h1>贷款计算器 <small>等额本息</small></h1>
+        <p class="sub">源自 Java 控制台程序 <code>App.java</code> 的网页版 —— 输入年利率、年限、贷款额,一键算出月供与总还款</p>
+      </div>
+    </div>
+    <div class="header-badge" title="等额本息:每月还款额固定">
+      <span class="dot"></span> 等额本息 · 每月固定还款
+    </div>
+  </div>
+</header>
+
+<main class="wrap layout">
+
+  <!-- ===== 左:输入表单 ===== -->
+  <section class="card form-card">
+    <h2 class="card-title">贷款参数</h2>
+    <form id="loan-form" novalidate autocomplete="off">
+
+      <div class="field">
+        <label for="rate">年利率(单位:%)</label>
+        <div class="input-row">
+          <input type="number" id="rate" name="rate" value="4.9" min="0" max="24" step="0.01" inputmode="decimal">
+          <span class="unit">%</span>
+        </div>
+        <input type="range" id="rate-range" min="0" max="24" step="0.05" value="4.9" aria-label="年利率滑块">
+        <div class="chips" data-target="rate">
+          <button type="button" class="chip" data-value="3.1">3.1%</button>
+          <button type="button" class="chip" data-value="3.6">3.6%</button>
+          <button type="button" class="chip" data-value="4.1">4.1%</button>
+          <button type="button" class="chip" data-value="4.9">4.9%</button>
+          <button type="button" class="chip" data-value="0">0%(贴息)</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="years">贷款年限(年)</label>
+        <div class="input-row">
+          <input type="number" id="years" name="years" value="20" min="1" max="40" step="1" inputmode="numeric">
+          <span class="unit">年</span>
+        </div>
+        <input type="range" id="years-range" min="1" max="40" step="1" value="20" aria-label="贷款年限滑块">
+        <div class="chips" data-target="years">
+          <button type="button" class="chip" data-value="5">5 年</button>
+          <button type="button" class="chip" data-value="10">10 年</button>
+          <button type="button" class="chip" data-value="20">20 年</button>
+          <button type="button" class="chip" data-value="30">30 年</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="amount">贷款金额(元)</label>
+        <div class="input-row">
+          <input type="number" id="amount" name="amount" value="500000" min="1000" max="100000000" step="1000" inputmode="decimal">
+          <span class="unit">元</span>
+        </div>
+        <input type="range" id="amount-range" min="10000" max="3000000" step="10000" value="500000" aria-label="贷款金额滑块">
+        <div class="chips" data-target="amount">
+          <button type="button" class="chip" data-value="100000">10 万</button>
+          <button type="button" class="chip" data-value="300000">30 万</button>
+          <button type="button" class="chip" data-value="500000">50 万</button>
+          <button type="button" class="chip" data-value="1000000">100 万</button>
+        </div>
+      </div>
+
+      <p class="error" id="error" role="alert" hidden></p>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">开始计算</button>
+        <button type="button" class="btn btn-ghost" id="reset">重置</button>
+        <button type="button" class="btn btn-ghost" id="copy">复制结果</button>
+      </div>
+      <p class="hint">提示:输入时结果会自动实时刷新(与 Java 版需要按回车逐步输入不同)。</p>
+    </form>
+  </section>
+
+  <!-- ===== 右:结果 ===== -->
+  <section class="card result-card" aria-live="polite">
+    <h2 class="card-title">计算结果</h2>
+
+    <div class="hero">
+      <div class="hero-label">每月月供</div>
+      <div class="hero-value" id="monthly">—</div>
+      <div class="hero-sub" id="monthly-sub">等额本息 · 每月固定还款</div>
+    </div>
+
+    <dl class="stats">
+      <div class="stat">
+        <dt>总还款额</dt>
+        <dd id="total-payment">—</dd>
+        <small id="total-payment-wan"></small>
+      </div>
+      <div class="stat">
+        <dt>其中利息</dt>
+        <dd id="total-interest" class="is-gold">—</dd>
+        <small id="total-interest-wan"></small>
+      </div>
+      <div class="stat">
+        <dt>贷款本金</dt>
+        <dd id="principal">—</dd>
+        <small id="principal-wan"></small>
+      </div>
+      <div class="stat">
+        <dt>还款期数</dt>
+        <dd id="months">—</dd>
+        <small id="interest-ratio"></small>
+      </div>
+    </dl>
+
+    <div class="donut-block">
+      <svg class="donut" viewBox="0 0 140 140" role="img" aria-label="本金与利息占比">
+        <circle class="donut-track" cx="70" cy="70" r="54"></circle>
+        <circle class="donut-principal" id="donut-principal" cx="70" cy="70" r="54"></circle>
+        <circle class="donut-interest" id="donut-interest" cx="70" cy="70" r="54"></circle>
+      </svg>
+      <ul class="legend">
+        <li><span class="swatch swatch-principal"></span>本金 <b id="legend-principal">—</b></li>
+        <li><span class="swatch swatch-interest"></span>利息 <b id="legend-interest">—</b></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 还款计划 ===== -->
+  <section class="card wide">
+    <div class="card-head">
+      <h2 class="card-title">还款计划</h2>
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" id="tab-year" role="tab" aria-selected="true">按年汇总</button>
+        <button class="tab" id="tab-month" role="tab" aria-selected="false">按月明细</button>
+        <button class="btn btn-ghost btn-sm" id="download">导出 CSV</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table id="schedule-table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="hint" id="schedule-note"></p>
+  </section>
+
+  <!-- ===== 说明与源码 ===== -->
+  <section class="card wide about">
+    <h2 class="card-title">计算说明与原 Java 代码</h2>
+    <div class="about-grid">
+      <div>
+        <h3>核心公式(等额本息)</h3>
+        <p class="formula">月供 = 本金 × 月利率 ÷ ( 1 − 1 ÷ (1 + 月利率)<sup>期数</sup> )</p>
+        <ul class="notes">
+          <li><b>月利率</b> = 年利率 ÷ 1200(年利率按百分数输入)</li>
+          <li><b>期数</b> = 贷款年限 × 12(月)</li>
+          <li><b>总还款额</b> = 月供 × 期数;<b>总利息</b> = 总还款额 − 本金</li>
+          <li>总额按“未取整的月供 × 期数”计算,与原 Java 程序口径一致(银行实务常先把月供取整到分,总额会相差几角钱)</li>
+          <li>每月还款额固定,其中利息逐月减少、本金逐月增加</li>
+        </ul>
+        <h3>网页版相对原程序的小改进</h3>
+        <ul class="notes">
+          <li>变量名拼写修正:<code>interst → interest</code>、<code>monthiy → monthly</code></li>
+          <li>月供输出补上漏掉的 <code>$</code> 符号,并保留两位小数</li>
+          <li>补充:零利率兼容(避免 Java 中 <code>1/0</code> 除零)、输入校验、逐月还款计划、本金利息占比图</li>
+          <li>加入实时计算与移动端适配,交互由命令行变为网页表单</li>
+        </ul>
+      </div>
+      <div>
+        <h3>原始 Java 代码(App.java)</h3>
+        <pre class="code"><code>import java.util.Scanner;
+
+public class App {
+    public static void main(String[] args) {
+        Scanner input = new Scanner(System.in);
+
+        System.out.println("Enter annual interest rate");
+        double annualInterestRate = input.nextDouble();
+        double monthlyInterestRate = annualInterestRate / 1200;
+
+        System.out.println("Enter number of years as an integer");
+        int numberOfYears = input.nextInt();
+
+        System.out.println("Enter the loan amount");
+        double loanAmount = input.nextDouble();
+
+        double monthlyPayment = loanAmount * monthlyInterestRate
+                / (1 - 1 / Math.pow(1 + monthlyInterestRate, numberOfYears * 12));
+        double totalPayment = monthlyPayment * numberOfYears * 12;
+
+        System.out.println("The monthly payment is $" + (int)(monthlyPayment * 100) / 100.0);
+        System.out.println("The total payment is $" + (int)(totalPayment * 100) / 100.0);
+    }
+}</code></pre>
+        <p class="hint">上方为可读化后的等价代码(修正拼写与格式);计算逻辑与网页版 <code>calc.js</code> 完全一致。</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>贷款计算器 · 网页版 | 计算逻辑对应 Java 程序 <code>App.java</code> 的等额本息公式</p>
+    <p class="disclaimer">结果仅供学习与估算参考,实际月供以银行/贷款机构的合同为准。</p>
+  </div>
+</footer>
+
+<script src="calc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
